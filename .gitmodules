@@ -1,0 +1,3 @@
+[submodule "src/3rd_party-static/so-5-5"]
+	path = src/3rd_party-static/so-5-5
+	url = https://github.com/eao197/so-5-5

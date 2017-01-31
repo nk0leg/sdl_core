@@ -68,6 +68,9 @@ class SecurityManagerImpl;
 }  // namespace security_manager
 #endif  // ENABLE_SECURITY
 
+//SObjectizer header
+#include "so_5/all.hpp"
+
 namespace main_namespace {
 class LifeCycle {
  public:
@@ -84,6 +87,7 @@ class LifeCycle {
    */
   void Run();
   void StopComponents();
+  void Init(so_5::environment_t& env);
 
  private:
   transport_manager::TransportManagerImpl* transport_manager_;

@@ -55,6 +55,7 @@
 #include "formatters/formatter_json_rpc.h"
 #include "formatters/CFormatterJsonSDLRPCv2.h"
 #include "formatters/CFormatterJsonSDLRPCv1.h"
+#include "so_5/all.hpp"
 
 #include "utils/threads/thread.h"
 #include "utils/file_system.h"
@@ -76,7 +77,6 @@ int get_rand_from_range(uint32_t from = 0, int to = RAND_MAX) {
 }
 
 namespace application_manager {
-
 namespace {
 DeviceTypes devicesType = {
     std::make_pair(std::string("USB_AOA"),
@@ -91,15 +91,19 @@ DeviceTypes devicesType = {
 uint32_t ApplicationManagerImpl::corelation_id_ = 0;
 const uint32_t ApplicationManagerImpl::max_corelation_id_ = UINT_MAX;
 
-namespace formatters = NsSmartDeviceLink::NsJSONHandler::Formatters;
+namespace formatters = NsSmartDeviceapplication_msg_replyLink::NsJSONHandler::Formatters;
 namespace jhs = NsSmartDeviceLink::NsJSONHandler::strings;
 
 using namespace NsSmartDeviceLink::NsSmartObjects;
 
 ApplicationManagerImpl::ApplicationManagerImpl(
+    so_5::rt::environment_t& env,
+     const so_5::rt::mbox_ref_t & appMgr_mbox,
     const ApplicationManagerSettings& am_settings,
     const policy::PolicySettings& policy_settings)
-    : settings_(am_settings)
+    : so_5::rt::agent_t(env)
+    , app_mgr_mbox_(appMgr_mbox) // global mbox
+    , settings_(am_settings)
     , applications_list_lock_(true)
     , audio_pass_thru_active_(false)
     , is_distracting_driver_(false)
@@ -155,6 +159,34 @@ ApplicationManagerImpl::ApplicationManagerImpl(
   const uint32_t timeout_ms = 10000u;
   clearing_timer->Start(timeout_ms, timer::kSingleShot);
   timer_pool_.push_back(clearing_timer);
+}
+
+void ApplicationManagerImpl::so_default_agent(){
+    //subscribe on event.
+    //EventDispatcher replacement
+    so_default_state().event(&incoming_msg);
+}
+void ApplicationManagerImpl::so_evt_start() {
+  auto disp = so_5::disp::active_obj::create_private_disp(so_environment() );
+  so_5::introduce_child_coop(
+          *this,
+          // Name will be generated automatically.
+          so_5::autoname,
+          // The same dispatcher will be used for child cooperation.
+          m_dispatcher->binder(),
+          [this]( so_5::coop_t & coop ) {
+                    coop.make_agent< media_manager_ >( so_direct_mbox(), disp); // use media_manager_ for example. necessary modify  media_manager_ to public so_5::agent_t
+                    // so_direct_mbox uses for example. For send message to ApplicationManagerImpl use so_5::send<MSG_TYPE>( disp, MSG);
+          } );
+
+}
+
+void ApplicationManagerImpl::so_evt_finish() {
+    so_deregister_agent_coop_normaly();
+}
+
+void ApplicationManagerImpl::incoming_msg(const application_msg_reply& application_msg_reply) {
+//collect
 }
 
 ApplicationManagerImpl::~ApplicationManagerImpl() {

@@ -99,9 +99,26 @@ LifeCycle::LifeCycle(const profile::Profile& profile)
     , profile_(profile) {
 }
 
+void LifeCycle::Init(so_5::environment_t &env) {
+    auto coop = env.create_coop(
+               "AppLlicationManager",
+               so_5::disp::active_obj::create_disp_binder( "AppMngDispatcher" ) );
+
+       auto appMgr_mbox = env.create_local_mbox();
+
+       DCHECK(!app_manager_);
+       app_manager_ =
+           new application_manager::ApplicationManagerImpl(env, appMgr_mbox, profile_, profile_);
+
+       coop->add_agent( app_manager_ );
+
+       env.register_coop( std::move( coop ) );
+   }
+
 bool LifeCycle::StartComponents() {
   LOG4CXX_AUTO_TRACE(logger_);
   DCHECK(!last_state_);
+
   last_state_ = new resumption::LastStateImpl(profile_.app_storage_folder(),
                                               profile_.app_info_storage());
 
@@ -120,9 +137,18 @@ bool LifeCycle::StartComponents() {
                                                 *transport_manager_);
   DCHECK(protocol_handler_);
 
-  DCHECK(!app_manager_);
-  app_manager_ =
-      new application_manager::ApplicationManagerImpl(profile_, profile_);
+
+  so_5::launch(&Init,
+               [] (so_5::environment_params_t& params)
+                {
+                        params.add_named_dispatcher("main_thread_dispatcher",
+                                                    so_5::disp::one_thread::create_disp())
+                        .add_named_dispatcher("active_group",
+                                                     so_5::disp::active_group::create_disp())
+                         .add_named_dispatcher("AppMngDispatcher",
+                                                      so_5::disp::active_obj::create_disp());
+                }
+              );
 
   DCHECK(!hmi_handler_);
   hmi_handler_ = new hmi_message_handler::HMIMessageHandlerImpl(profile_);
@@ -335,6 +361,7 @@ void LifeCycle::StopComponents() {
   DCHECK_OR_RETURN_VOID(protocol_handler_);
   protocol_handler_->RemoveProtocolObserver(app_manager_);
 
+  so_5::environment_t::stop();
   DCHECK_OR_RETURN_VOID(app_manager_);
   app_manager_->Stop();
 

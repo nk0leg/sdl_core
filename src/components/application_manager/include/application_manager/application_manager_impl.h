@@ -41,6 +41,7 @@
 #include <algorithm>
 #include <memory>
 
+#include "so_5/all.hpp"
 #include "application_manager/hmi_command_factory.h"
 #include "application_manager/application_manager.h"
 #include "application_manager/hmi_capabilities.h"
@@ -191,7 +192,8 @@ typedef std::vector<std::string> RPCParams;
 typedef utils::SharedPtr<timer::Timer> TimerSPtr;
 
 class ApplicationManagerImpl
-    : public ApplicationManager,
+    : public so_5::agent_t,
+      public ApplicationManager,
       public hmi_message_handler::HMIMessageObserver,
       public protocol_handler::ProtocolObserver,
       public connection_handler::ConnectionHandlerObserver,
@@ -214,10 +216,25 @@ class ApplicationManagerImpl
   friend class CommandImpl;
 
  public:
-  ApplicationManagerImpl(const ApplicationManagerSettings& am_settings,
+  ApplicationManagerImpl(const so_5::rt::environment_t& env,
+                         const so_5::rt::mbox_ref_t & appMgr_mbox,
+                         const ApplicationManagerSettings& am_settings,
                          const policy::PolicySettings& policy_settings);
   ~ApplicationManagerImpl();
 
+  virtual void so_default_agent() override;
+  virtual void so_evt_start() override;
+  virtual void so_evt_finish() override;
+
+  struct application_msg_reply : public so_5::rt::message_t
+  {
+      //
+      application_msg_reply (){
+      //
+      }
+  };
+
+  void incoming_msg(const application_msg_reply& application_msg_reply);
   /**
    * Inits application manager
    */
@@ -1350,6 +1367,10 @@ class ApplicationManagerImpl
   void ClearTTSGlobalPropertiesList();
 
  private:
+
+  const so_5::mbox_t app_mgr_coordinator_;
+  so_5::disp::active_obj::private_dispatcher_handle_t app_mgr_dispatcher_;
+
   const ApplicationManagerSettings& settings_;
   /**
    * @brief List of applications
